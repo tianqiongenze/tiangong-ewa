@@ -1,0 +1,51 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  PYTHONPATH: "impl/packages/tiangong_core:impl/services/agent-runtime"
+
+jobs:
+  python-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r impl/services/agent-runtime/requirements.txt
+          pip install ruff
+      - name: Lint
+        run: ruff check impl/packages impl/services
+      - name: Unit + API tests
+        run: pytest -q --maxfail=1
+      - name: Coverage gate (>=80%)
+        run: |
+          pip install coverage
+          cd impl && coverage run --source=tiangong_core,app -m pytest -q && cd ..
+          cd impl && coverage report --fail-under=80
+      - name: Demo smoke (no hardware)
+        run: cd impl && python tools/demo_run.py
+
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install buf
+        run: |
+          curl -sSL https://github.com/bufbuild/buf/releases/latest/download/buf-Linux-x86_64 \
+            -o /usr/local/bin/buf && chmod +x /usr/local/bin/buf
+      - name: Lint proto
+        run: buf lint impl/contracts/proto

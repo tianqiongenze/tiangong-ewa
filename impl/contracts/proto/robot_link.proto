@@ -1,0 +1,63 @@
+syntax = "proto3";
+
+package tiangong.robotlink.v1;
+
+// 机器人链路契约（真机适配层）。
+// agent-runtime 只认这个契约；厂商 SDK 差异关在各自的 adapter 里（宪法第九条可替换性）。
+// 首期走 MockRobotDriver（内存仿真）；真机按本文件实现 gRPC 服务端。
+
+option go_package = "tiangong/contracts/robotlink";
+
+// 链路服务：遥测上报 + 动作下发 + 急停
+service RobotLink {
+  // 遥测流（机器人 → 平台）
+  rpc StreamTelemetry(TelemetryRequest) returns (stream Telemetry);
+
+  // 动作下发（平台 → 机器人；调用前必须已通过安全审查）
+  rpc Execute(ExecuteRequest) returns (ExecuteResponse);
+
+  // 急停（平台 → 机器人；最高优先级，抢占执行队列）
+  rpc EmergencyStop(EstopRequest) returns (EstopResponse);
+}
+
+message TelemetryRequest {
+  string robot_id = 1;
+  int32 interval_ms = 2;   // 0 = 仅按事件推送
+}
+
+message Telemetry {
+  string robot_id = 1;
+  double x = 2;            // 厂区平面坐标（米）
+  double y = 3;
+  double battery_pct = 4;
+  double speed = 5;
+  bool online = 6;
+  bool person_in_stop_zone = 7;   // 现场事实：停止区是否有人
+  int64 at_unix_ms = 8;
+}
+
+message ExecuteRequest {
+  string robot_id = 1;
+  string action_kind = 2;  // MOVE / PICK / PLACE / SCAN / PHOTO / CLEAN / CHARGE
+  double x = 3;
+  double y = 4;
+  double payload_kg = 5;
+  string human_token = 6;  // 人工确认令牌（安全关键动作必填）
+  string trace_id = 7;     // 证据链锚点
+}
+
+message ExecuteResponse {
+  bool ok = 1;
+  string detail = 2;
+  string telemetry_ref = 3;
+  double duration_s = 4;
+}
+
+message EstopRequest {
+  string robot_id = 1;
+  string reason = 2;
+}
+
+message EstopResponse {
+  bool stopped = 1;
+}

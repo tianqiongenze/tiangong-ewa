@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+.qa/
+.DS_Store
+Thumbs.db
+*.tmp
+edge-data/

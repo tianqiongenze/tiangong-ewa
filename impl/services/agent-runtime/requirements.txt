@@ -1,0 +1,8 @@
+# agent-runtime 依赖（学生端/演示端）
+litestar>=2.13,<3.0
+granian>=2.0,<3.0
+msgspec>=0.18,<1.0
+# test
+pytest>=8.0,<9.0
+httpx>=0.27,<1.0
+coverage>=7.0
