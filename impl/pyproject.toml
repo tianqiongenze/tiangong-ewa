@@ -1,0 +1,16 @@
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# 规则集：pycodestyle(E) + Pyflakes(F) + isort(I) + pyupgrade(UP)
+#          + bugbear(B) + flake8-simplify(SIM)
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+# 降级纪律（宪法第四条）：观测/事件/缓存/仓储的故障**不得阻断作业主链**，
+# 因此 app 层大量使用"except Exception + 记录/忽略"的防御式写法——这是刻意设计，
+# 不是偷懒。安全判定（safety.py）不在此列，仍走精确异常。
+"services/agent-runtime/app/*" = ["BLE001", "S110", "S112"]
+# 测试允许 assert 与盲捕获
+"tests/*" = ["BLE001", "S110", "S112"]

@@ -11,8 +11,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Optional, Sequence
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -61,7 +62,7 @@ class EpisodeRecorder:
     def by_skill(self, skill_id: str) -> list[Episode]:
         return [e for e in self._episodes if e.skill_id == skill_id]
 
-    def success_rate(self, skill_id: str) -> Optional[float]:
+    def success_rate(self, skill_id: str) -> float | None:
         eps = self.by_skill(skill_id)
         if not eps:
             return None

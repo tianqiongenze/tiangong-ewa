@@ -10,8 +10,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Iterable, Mapping, Optional, Protocol, Sequence
+from typing import Any, Protocol
 
 from .models import Task, TaskStatus, WorkOrder, WorkOrderKind
 
@@ -78,7 +79,7 @@ class RuleBasedPlanner:
     def _inspect(oid: str, p: Mapping[str, Any]) -> Sequence[Task]:
         points: Iterable[Mapping[str, Any]] = p.get("points", [])
         tasks: list[Task] = []
-        prev: Optional[str] = None
+        prev: str | None = None
         for i, pt in enumerate(points, 1):
             tid = f"{oid}-T{i}"
             tasks.append(_mk_task(oid, tid, "SCAN",
@@ -182,7 +183,7 @@ class TaskGraph:
 _TERMINAL = frozenset({TaskStatus.DONE, TaskStatus.ABORTED, TaskStatus.SUPERSEDED})
 
 
-def decompose(order: WorkOrder, planner: Optional[Planner] = None) -> TaskGraph:
+def decompose(order: WorkOrder, planner: Planner | None = None) -> TaskGraph:
     """默认入口：规则规划器分解 + DAG 校验。"""
     p = planner or RuleBasedPlanner()
     tasks = p.plan(order)

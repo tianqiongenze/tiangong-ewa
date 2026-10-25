@@ -15,8 +15,9 @@ from __future__ import annotations
 
 import math
 import time
-from dataclasses import dataclass, field
-from typing import Any, Mapping, Optional, Sequence
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from typing import Any
 
 from .base import ExecutionResult, Telemetry
 
@@ -36,7 +37,7 @@ class SimRobot:
 class MockRobotDriver:
     """内存仿真机群。"""
 
-    def __init__(self, robots: Optional[Sequence[SimRobot]] = None,
+    def __init__(self, robots: Sequence[SimRobot] | None = None,
                  tick_s: float = 0.5) -> None:
         self.robots: dict[str, SimRobot] = {r.robot_id: r for r in (robots or [])}
         self.tick_s = tick_s
@@ -45,7 +46,7 @@ class MockRobotDriver:
 
     # -- 装配 -------------------------------------------------------------
     @classmethod
-    def demo_fleet(cls) -> "MockRobotDriver":
+    def demo_fleet(cls) -> MockRobotDriver:
         """演示机群：两台 AMR + 一台机械臂 + 一台四足（巡检）。"""
         return cls([
             SimRobot("AMR-01", "AMR", x=2.0, y=2.0, speed=1.2),
@@ -58,7 +59,7 @@ class MockRobotDriver:
     def list_robots(self) -> Sequence[str]:
         return tuple(self.robots)
 
-    def telemetry(self, robot_id: str) -> Optional[Telemetry]:
+    def telemetry(self, robot_id: str) -> Telemetry | None:
         r = self.robots.get(robot_id)
         if r is None:
             return None

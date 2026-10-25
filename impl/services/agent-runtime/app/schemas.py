@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping, Optional
+from collections.abc import Mapping
+from typing import Any
 
 import msgspec
 
@@ -31,7 +32,7 @@ class SkillPublishIn(msgspec.Struct):
 
 class SkillApproveIn(msgspec.Struct):
     approved_by: str
-    canary_pct: Optional[int] = None
+    canary_pct: int | None = None
 
 
 class TokenIn(msgspec.Struct):
@@ -43,3 +44,9 @@ class TokenIn(msgspec.Struct):
 class ErrorOut(msgspec.Struct):
     error: str
     detail: str = ""
+
+
+class A2ADelegateIn(msgspec.Struct):
+    intent: str
+    params: Mapping[str, Any]
+    source_agent: str = "unknown"

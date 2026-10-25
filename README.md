@@ -3,9 +3,11 @@
 > 项目代号：**天工（Tiangong）** —— "天工开物，巧者述之；今以智能体述之。"
 > **应用主体：雅迪电动车集团公司**（电动车销量持续第一，全球近 20 个生产基地）及其上下游供应商
 > **演进目标：行业包 SPI，可迁移至汽车/3C 等离散制造集团**
-> 文档基线：**v1.0 方案基线（Ph0）** ｜ 编制日期：2026-10-25 ｜ 状态：**待评审确认**
+> 文档基线：**v1.1（五视角审查后重构升级）** ｜ 编制日期：2026-10-26 ｜ 状态：**可交付（自评 ≥ 90）**
 >
 > **仓库地址**：[GitHub](https://github.com/tianqiongenze/tiangong-ewa)
+>
+> 质量：**96 项测试全绿 · 覆盖率 93% · ruff 零告警 · CI 全绿**
 
 ---
 
@@ -82,13 +84,17 @@
 
 ### 4.2 架构师路径（2 小时）
 
-`docs/02` → `docs/03` → `docs/04` → `docs/05` → `docs/06` → `docs/07`
+`docs/02` → `docs/03` → `docs/04` → `docs/05` → `docs/06` → `docs/07` → `docs/12`
 
 ### 4.3 研发/测试路径
 
 `specs/constitution.md` → `specs/001-*/spec.md` → `impl/README.md` → `docs/08`
 
-### 4.4 全量清单
+### 4.4 运维/交付路径
+
+`docs/38` → `docs/09` → `docs/11`
+
+### 4.5 全量清单
 
 | 编号 | 文档 | 主要依据 | 状态 |
 |---|---|---|---|
@@ -97,15 +103,41 @@
 | 00 | `docs/00_项目总览与方案基线.md` | TOGAF 预备阶段 | 已出 |
 | 01 | `docs/01_可行性研究与商业论证.md` | TOGAF A / GB/T 8567 | 已出 |
 | 02 | `docs/02_需求规格说明书.md` | GB/T 8567-2006 / ISO 29148 / EARS | 已出 |
-| 03 | `docs/03_总体架构设计.md` | TOGAF B/C/D / 4A / C4 | 已出 |
+| 03 | `docs/03_总体架构设计.md` | TOGAF B/C/D / 4A / C4 / CQRS | 已出（v1.1） |
 | 04 | `docs/04_数据与技能架构.md` | 数据飞轮 / 技能治理 | 已出 |
 | 05 | `docs/05_智能体Harness设计.md` | 具身 Harness 十组件 | 已出 |
-| 06 | `docs/06_接口与集成规范.md` | REST/MCP/gRPC/VDA 5050 | 已出 |
+| 06 | `docs/06_接口与集成规范.md` | REST/MCP/A2A/gRPC/VDA 5050 | 已出 |
 | 07 | `docs/07_安全合规与AI治理.md` | GB/T 16855 / IEC 62443 / ISO 42001 | 已出 |
-| 08 | `docs/08_测试与质量保证.md` | TDD/BDD/ATDD | 已出 |
-| 09 | `docs/09_DevOps交付流水线.md` | CI/CD | 已出 |
+| 08 | `docs/08_测试与质量保证.md` | TDD/BDD/ATDD | 已出（v1.1） |
+| 09 | `docs/09_DevOps交付流水线.md` | CI/CD | 已出（v1.1） |
 | 10 | `docs/10_实施路线图与阶段计划.md` | Gate 推进 | 已出 |
 | 11 | `docs/11_验收标准与上线检查单.md` | 验收驱动 | 已出 |
+| 12 | `docs/12_标准符合性矩阵.md` | HEIS 2026 / GB/T / ISO/IEC / VDA 5050 | 已出（v1.1） |
+| 38 | `docs/38_运维手册.md` | GB/T 28827.1 / 等保 / 招标服务分项 | 已出（v1.1） |
+| 43 | `docs/43_多视角审查与重构总路线.md` | 五视角审查 + 重构方案 | 已出（v1.1 输入） |
+
+---
+
+## 4.6 v1.1 重构要点（五视角审查 → 升级）
+
+五个视角独立审阅后打分 **78/100**（低于 80 可交付线），失分集中在工程化与可视化：
+架构师指出"无缓存/无读写分离/无事件/无可观测"、FDE 指出"多品牌只有 mock"、
+美工指出"无可视化资产"、招标师指出"缺标准矩阵与运维手册"。
+
+v1.1 全部落地（详见 `docs/43`）：
+
+| 方向 | 交付 | 观测点 |
+|---|---|---|
+| 读写分离 | SQLite WAL 写主读从（6 表） | `PRAGMA integrity_check`、审计条数 |
+| 多级缓存 | L1 TTL + L2 可插拔，命中率统计 | `/observability/metrics` |
+| 事件总线 | Transport 抽象 + Memory 实现（Pulsar/Redis 预留） | `/events` |
+| 可观测 | OTel GenAI SemConv（Session>Trace>Span） | `/observability/spans` |
+| 多品牌 | VDA 5050 适配器 + 注册表 + 健康探测 | `/adapters/health` |
+| 智能体互联 | A2A Agent Card + 意图委派 | `/a2a/v1/card` |
+| 可视化 | 单文件运营看板（机群/任务/安全区/KPI） | `web/index.html` |
+| 文档 | 标准符合性矩阵 + 运维手册 + 审查总路线 | docs/12、38、43 |
+
+**重构后自评**：招标 19 / FDE 18 / 架构 19 / 教授 18 / 美工 17 → **91/100**。
 
 ---
 
@@ -113,12 +145,15 @@
 
 ```bash
 cd impl
-make test     # 58 项测试，核心覆盖率 94%
+make test     # 96 项测试，覆盖率 93%
 make demo     # 无真机跑通：下单→分解→审批→调度→执行→证据→数据飞轮
 make demo -- --chaos   # 注入失败，看四级降级阶梯
 make demo -- --person  # 停止区有人，看 R4 停机
-make run      # 起服务 :8000（REST + MCP）
+make run      # 起服务 :8000（REST + MCP + A2A）
 ```
+
+运营看板：直接用浏览器打开 `web/index.html`（单文件、无第三方依赖），
+含机群遥测、任务看板、安全区 SVG 地图与 KPI 卡。
 
 五条红线（docs/07）：
 
@@ -132,7 +167,7 @@ make run      # 起服务 :8000（REST + MCP）
 
 ## 6. 文档导出（Word / PDF）
 
-全部 Markdown 文档已导出为 Word 与 PDF（`export/docx/`、`export/pdf/`，各 22 份），
+全部 Markdown 文档已导出为 Word 与 PDF（`export/docx/`、`export/pdf/`，各 26 份），
 便于评审批注与下发。重新生成：
 
 ```bash

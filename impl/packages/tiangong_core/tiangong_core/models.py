@@ -6,12 +6,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
-from enum import Enum
-from typing import Any, Mapping, Optional, Tuple
+from enum import StrEnum
+from typing import Any
 
 
-class WorkOrderKind(str, Enum):
+class WorkOrderKind(StrEnum):
     """作业单类型（首期五类，对应实景实训九大场景中的产线高频作业）。"""
 
     TRANSPORT = "TRANSPORT"          # 搬运：把物料从 A 送到 B
@@ -21,7 +22,7 @@ class WorkOrderKind(str, Enum):
     CHARGE = "CHARGE"                # 回充：低电量自主归位
 
 
-class ZoneKind(str, Enum):
+class ZoneKind(StrEnum):
     """安全区类型（GB/T 16855 / ISO 13849 概念的本土化映射）。"""
 
     FORBIDDEN = "FORBIDDEN"   # 禁入区：任何机器人不得进入（高压间、化学品库）
@@ -29,7 +30,7 @@ class ZoneKind(str, Enum):
     SLOW = "SLOW"             # 限速区：降速通过（人行通道、窄门）
 
 
-class TaskStatus(str, Enum):
+class TaskStatus(StrEnum):
     """任务生命周期（九态，与 Diting-PdM 技能状态同构，便于教学迁移）。"""
 
     PENDING = "PENDING"        # 已分解，待审批
@@ -65,9 +66,9 @@ class RobotCapability:
 
     payload_kg: float                 # 额定负载
     max_speed: float                  # 最高速度 m/s
-    reach_m: Optional[float] = None   # 机械臂展（上下料类需要）
-    sensors: Tuple[str, ...] = ()     # camera/lidar/thermal/force
-    skills: Tuple[str, ...] = ()      # 具备的技能 ID
+    reach_m: float | None = None   # 机械臂展（上下料类需要）
+    sensors: tuple[str, ...] = ()     # camera/lidar/thermal/force
+    skills: tuple[str, ...] = ()      # 具备的技能 ID
     endurance_min: float = 240.0      # 续航（分钟）
     intrinsically_safe: bool = False  # 本质安全（碰撞不伤人）→ 可进 STOP 区
 
@@ -101,12 +102,12 @@ class EvidenceItem:
 class Evidence:
     """证据链：一组有序证据。"""
 
-    items: Tuple[EvidenceItem, ...] = ()
+    items: tuple[EvidenceItem, ...] = ()
 
-    def add(self, item: EvidenceItem) -> "Evidence":
+    def add(self, item: EvidenceItem) -> Evidence:
         return Evidence(items=self.items + (item,))
 
-    def kinds(self) -> Tuple[str, ...]:
+    def kinds(self) -> tuple[str, ...]:
         return tuple(i.kind for i in self.items)
 
 
@@ -118,14 +119,14 @@ class Task:
     work_order_id: str
     kind: str                  # PICK / TRANSPORT / PLACE / SCAN / PHOTO / RETURN / CHARGE
     params: Mapping[str, Any]  # 起点、终点、目标、读表项等
-    depends_on: Tuple[str, ...] = ()
+    depends_on: tuple[str, ...] = ()
     status: TaskStatus = TaskStatus.PENDING
-    assigned_to: Optional[str] = None
+    assigned_to: str | None = None
     evidence: Evidence = field(default_factory=Evidence)
     attempts: int = 0
     note: str = ""
 
-    def with_status(self, status: TaskStatus, **kw: Any) -> "Task":
+    def with_status(self, status: TaskStatus, **kw: Any) -> Task:
         return replace(self, status=status, **kw)
 
 
@@ -159,10 +160,10 @@ class Skill:
 
     skill_id: str
     name: str
-    versions: Tuple[SkillVersion, ...] = ()
+    versions: tuple[SkillVersion, ...] = ()
     description: str = ""
 
-    def active_version(self) -> Optional[SkillVersion]:
+    def active_version(self) -> SkillVersion | None:
         """当前生效版本：APPROVED 中 version 最大者。"""
         approved = [v for v in self.versions if v.state == "APPROVED"]
         return max(approved, key=lambda v: v.version) if approved else None

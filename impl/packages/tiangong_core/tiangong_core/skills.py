@@ -6,8 +6,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Iterable, Mapping, Optional
+from collections.abc import Iterable
 
 from .models import Skill, SkillVersion
 
@@ -41,7 +40,7 @@ class SkillRegistry:
             raise SkillError(f"技能未注册: {skill_id}")
         if any(v.version == version for v in self._skills[skill_id].versions):
             raise SkillError(f"版本已存在: {skill_id}@{version}")
-        if not 0 <= canary_pct <= 100:
+        if canary_pct < 0 or canary_pct > 100:
             raise SkillError(f"灰度比例非法: {canary_pct}")
         from dataclasses import replace
         v = SkillVersion(skill_id=skill_id, version=version, entry=entry,
@@ -52,7 +51,7 @@ class SkillRegistry:
         return v
 
     def approve(self, skill_id: str, version: str, approved_by: str,
-                canary_pct: Optional[int] = None) -> SkillVersion:
+                canary_pct: int | None = None) -> SkillVersion:
         """审批通过；同技能旧 APPROVED 版本自动 SUPERSEDED。"""
         skill = self._get(skill_id)
         found = None
@@ -62,9 +61,10 @@ class SkillRegistry:
                 if v.state == SkillState.APPROVED:
                     raise SkillError(f"已审批: {version}")
                 found = v
-                new_versions.append(replace_v(v, state=SkillState.APPROVED,
-                                              approved_by=approved_by,
-                                              canary_pct=v.canary_pct if canary_pct is None else canary_pct))
+                new_versions.append(replace_v(
+                    v, state=SkillState.APPROVED, approved_by=approved_by,
+                    canary_pct=(v.canary_pct if canary_pct is None
+                                else canary_pct)))
             elif v.state == SkillState.APPROVED:
                 new_versions.append(replace_v(v, state=SkillState.SUPERSEDED))
             else:
@@ -93,7 +93,7 @@ class SkillRegistry:
             self._set_state(skill, cur.version, SkillState.SUPERSEDED)
         return self.approve(skill_id, to_version, approved_by="rollback")
 
-    def active(self, skill_id: str) -> Optional[SkillVersion]:
+    def active(self, skill_id: str) -> SkillVersion | None:
         skill = self._skills.get(skill_id)
         return skill.active_version() if skill else None
 
@@ -134,5 +134,5 @@ def _replace_versions(skill: Skill, versions: tuple[SkillVersion, ...]) -> Skill
     return replace(skill, versions=versions)
 
 
-def _find(skill: Skill, version: str) -> Optional[SkillVersion]:
+def _find(skill: Skill, version: str) -> SkillVersion | None:
     return next((v for v in skill.versions if v.version == version), None)

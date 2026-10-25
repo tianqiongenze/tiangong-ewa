@@ -15,8 +15,10 @@ from __future__ import annotations
 
 import time
 import uuid
+from collections.abc import Mapping, Sequence
+from contextlib import suppress
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Optional, Sequence
+from typing import Any
 
 from tiangong_core import (
     Action,
@@ -24,10 +26,7 @@ from tiangong_core import (
     DegradeLevel,
     Episode,
     EpisodeRecorder,
-    Evidence,
     EvidenceChain,
-    EvidenceItem,
-    IllegalTransition,
     Robot,
     SafetyZone,
     SkillRegistry,
@@ -36,9 +35,7 @@ from tiangong_core import (
     TaskStatus,
     Verdict,
     WorkOrder,
-    WorkOrderKind,
     check_action,
-    check_geofence,
     decompose,
     transition,
     verify_evidence,
@@ -46,6 +43,7 @@ from tiangong_core import (
 from tiangong_core.fleet import FleetScheduler
 from tiangong_core.skills import SkillError
 
+from .otel import gen_ai_attrs
 from .robots.base import RobotLink
 
 # 任务类型 → 技能 ID（种子技能登记在 seed.py；未登记的类型不挂 skill_version 证据）
@@ -101,13 +99,18 @@ class RunReport:
 
 
 class Orchestrator:
-    """具身作业编排器（无状态存储版：一次运行一个 report，供 API 层保持引用）。"""
+    """具身作业编排器（无状态存储版：一次运行一个 report，供 API 层保持引用）。
+
+    v1.1：可选注入 observability（Tracer）/ events（EventBus）/ repo（Repository），
+    注入后自动插桩与持久化；不注入时行为与 v1.0 一致（测试友好）。
+    """
 
     def __init__(self, link: RobotLink, robots: Sequence[Robot],
                  zones: Sequence[SafetyZone] = (),
-                 skills: Optional[SkillRegistry] = None,
-                 recorder: Optional[EpisodeRecorder] = None,
-                 human_tokens: Optional[Mapping[str, str]] = None) -> None:
+                 skills: SkillRegistry | None = None,
+                 recorder: EpisodeRecorder | None = None,
+                 human_tokens: Mapping[str, str] | None = None,
+                 tracer: Any = None, events: Any = None, repo: Any = None) -> None:
         self.link = link
         self.robots = tuple(robots)
         self.zones = tuple(zones)
@@ -116,6 +119,15 @@ class Orchestrator:
         # 人工令牌簿：token → 签发人（真人签发；编排层只认簿子）
         self.human_tokens = dict(human_tokens or {})
         self.scheduler = FleetScheduler(self.zones)
+        self.tracer = tracer
+        self.events = events
+        self.repo = repo
+
+    def _emit(self, topic: str, type_: str, trace_id: str, **payload: Any) -> None:
+        if self.events is not None:
+            # 观测/事件故障不得阻断作业（降级纪律，宪法第四条）
+            with suppress(Exception):
+                self.events.publish(topic, type_, dict(payload), trace_id=trace_id)
 
     # ------------------------------------------------------------------
     def submit(self, order: WorkOrder) -> tuple[TaskGraph, RunReport]:
@@ -124,6 +136,13 @@ class Orchestrator:
         graph = decompose(order)
         rep = RunReport(order_id=order.order_id, trace_id=trace)
         rep.log("decomposed", tasks=list(graph.tasks))
+        if self.repo is not None:
+            with suppress(Exception):
+                self.repo.save_order(order.order_id, order.kind.value,
+                                     dict(order.params), order.priority,
+                                     order.requested_by, trace)
+        self._emit("work_order", "created", trace, order_id=order.order_id,
+                   kind=order.kind.value, tasks=len(graph.tasks))
         return graph, rep
 
     def approve(self, graph: TaskGraph, rep: RunReport,
@@ -133,6 +152,13 @@ class Orchestrator:
         for tid, t in graph.tasks.items():
             tasks[tid] = transition(t, TaskStatus.APPROVED)
         rep.log("approved", by=approved_by)
+        if self.repo is not None:
+            with suppress(Exception):
+                self.repo.set_order_status(rep.order_id, "APPROVED")
+                self.repo.audit(approved_by, "approve_order", rep.order_id,
+                                trace_id=rep.trace_id)
+        self._emit("work_order", "approved", rep.trace_id,
+                   order_id=rep.order_id, by=approved_by)
         return TaskGraph(tasks=tasks)
 
     def run(self, graph: TaskGraph, rep: RunReport,
@@ -140,6 +166,15 @@ class Orchestrator:
         """执行整张 DAG（拓扑序逐任务跑；失败走降级阶梯）。"""
         done: set[str] = set()
         ladder = DegradationLadder()
+        if self.tracer is not None:
+            with self.tracer.session("work-order") as _trace:
+                return self._run_locked(graph, rep, ladder, done,
+                                        person_in_stop_zone)
+        return self._run_locked(graph, rep, ladder, done, person_in_stop_zone)
+
+    def _run_locked(self, graph: TaskGraph, rep: RunReport,
+                    ladder: DegradationLadder, done: set[str],
+                    person_in_stop_zone: bool) -> RunReport:
         for tid in graph.topological_order():
             if rep.aborted:
                 break
@@ -149,20 +184,33 @@ class Orchestrator:
                 rep.tasks[tid] = t2
                 graph = TaskGraph(tasks={**graph.tasks, tid: t2})
                 rep.log("superseded", task=tid)
+                self._emit("task", "superseded", rep.trace_id, task=tid)
                 continue
             t2 = self._run_task(t, rep, ladder, person_in_stop_zone)
             rep.tasks[tid] = t2
             graph = TaskGraph(tasks={**graph.tasks, tid: t2})
+            if self.repo is not None:
+                with suppress(Exception):
+                    self.repo.save_task(t2)
             if t2.status is TaskStatus.DONE:
                 done.add(tid)
             elif t2.status is TaskStatus.ABORTED:
                 rep.aborted = True
                 rep.abort_reason = t2.note
+                self._emit("safety", "aborted", rep.trace_id,
+                           task=tid, reason=t2.note)
         rep.degraded = ladder.degraded
         rep.degrade_level = ladder.level.value
         if any(e.get("what") == "safety_halt" for e in rep.events):
             rep.safety_halted = True
             rep.degraded = True
+        if self.repo is not None:
+            with suppress(Exception):
+                self.repo.set_order_status(
+                    rep.order_id, "ABORTED" if rep.aborted else "DONE")
+        self._emit("work_order", "finished", rep.trace_id,
+                   order_id=rep.order_id, aborted=rep.aborted,
+                   degraded=rep.degraded, level=rep.degrade_level)
         return rep
 
     # ------------------------------------------------------------------
@@ -176,17 +224,35 @@ class Orchestrator:
 
         # 2) 安全审查 + 执行循环（含降级）
         while True:
-            verdict = self._safe(t, person_in_stop_zone)
+            if self.tracer is not None:
+                with self.tracer.span("safety_check", task=t.task_id,
+                                      robot=t.assigned_to or "",
+                                      kind=t.kind) as sp:
+                    verdict = self._safe(t, person_in_stop_zone)
+                    sp.attributes["allowed"] = verdict.allowed
+                    sp.attributes["reason"] = verdict.reason
+            else:
+                verdict = self._safe(t, person_in_stop_zone)
             if not verdict.allowed:
                 # 红线/围栏拒绝 → 直接中止（不重试）
                 return transition(t, TaskStatus.ABORTED, note=verdict.reason)
             if verdict.speed_limit == 0.0:
                 # R4 停机：停止区有人 → 本次不执行，人工确认后重试
                 rep.log("safety_halt", task=t.task_id, reason=verdict.reason)
+                self._emit("safety", "halted", rep.trace_id,
+                           task=t.task_id, reason=verdict.reason)
                 return transition(t, TaskStatus.FAILED, note=verdict.reason)
 
             t = transition(t, TaskStatus.EXECUTING, attempts=t.attempts + 1)
-            result = self.link.execute(t.assigned_to, self._action_for(t))
+            if self.tracer is not None:
+                with self.tracer.span("robot_execute", task=t.task_id,
+                                      robot=t.assigned_to or "",
+                                      **gen_ai_attrs(self._active_skill_version(t.kind)
+                                                     or "unmanaged")) as sp:
+                    result = self.link.execute(t.assigned_to, self._action_for(t))
+                    sp.attributes["ok"] = result.ok
+            else:
+                result = self.link.execute(t.assigned_to, self._action_for(t))
             if result.ok:
                 return self._finish(t, rep, result)
             # 失败 → 降级阶梯
@@ -229,7 +295,7 @@ class Orchestrator:
         return t
 
     # ------------------------------------------------------------------
-    def _pick_robot(self, task: Task) -> Optional[str]:
+    def _pick_robot(self, task: Task) -> str | None:
         """单任务分配（取最高分的合格机器人）。"""
         from tiangong_core import match_robots
         from tiangong_core.fleet import target_of
@@ -246,7 +312,7 @@ class Orchestrator:
                      human_token=self._token_for(task))
         try:
             return check_action(act, self.zones, person_in_stop_zone=person)
-        except Exception as e:  # RedLineError → 拒绝 verdict
+        except PermissionError as e:  # RedLineError → 拒绝 verdict
             return Verdict(False, reason=str(e))
 
     def _action_for(self, task: Task) -> dict[str, Any]:
@@ -262,7 +328,7 @@ class Orchestrator:
                 return float(p[kx]), float(p[ky])
         return 0.0, 0.0
 
-    def _token_for(self, task: Task) -> Optional[str]:
+    def _token_for(self, task: Task) -> str | None:
         """安全关键任务需查人工令牌簿；查不到返回 None（→ 红线 R2 拒绝）。
 
         令牌簿：``{范围: token}``，范围可以是 task_id 或 order_id。
@@ -273,7 +339,7 @@ class Orchestrator:
         return self.human_tokens.get(task.task_id) or self.human_tokens.get(
             task.work_order_id)
 
-    def _active_skill_version(self, kind: str) -> Optional[str]:
+    def _active_skill_version(self, kind: str) -> str | None:
         skill_id = TASK_KIND_TO_SKILL.get(kind)
         if skill_id is None:
             return None
@@ -286,7 +352,7 @@ class Orchestrator:
     def _record_episode(self, task: Task, rep: RunReport) -> None:
         skill_id = TASK_KIND_TO_SKILL.get(task.kind, "unmanaged")
         try:
-            self.recorder.record(Episode(
+            ep = self.recorder.record(Episode(
                 episode_id=f"EP-{uuid.uuid4().hex[:10]}",
                 task_id=task.task_id,
                 robot_id=task.assigned_to or "-",
@@ -298,4 +364,9 @@ class Orchestrator:
                 consent_id=f"CONSENT-{rep.order_id}",
             ))
         except ValueError:
-            pass  # 无授权单不阻断作业（记录缺失即可）
+            return  # 无授权单不阻断作业（记录缺失即可）
+        if self.repo is not None:
+            with suppress(Exception):
+                self.repo.save_episode(ep)
+        self._emit("episode", "recorded", rep.trace_id,
+                   episode_id=ep.episode_id, skill_id=skill_id)

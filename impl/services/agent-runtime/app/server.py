@@ -6,24 +6,22 @@
 from __future__ import annotations
 
 import uuid
-from typing import Any
+from typing import Annotated, Any
 
 from litestar import Litestar, get, post
-from litestar.status_codes import HTTP_200_OK
 from litestar.exceptions import HTTPException
-from litestar.params import Parameter
-from litestar.status_codes import HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND
-
+from litestar.params import Body, PathParameter, QueryParameter
+from litestar.status_codes import HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND
 from tiangong_core import (
-    Robot,
-    TaskGraph,
-    TaskStatus,
     WorkOrder,
     WorkOrderKind,
 )
 
 from . import __version__
+from .a2a import AGENT_CARD, delegate
+from .mcp import mcp_endpoint
 from .schemas import (
+    A2ADelegateIn,
     ApproveIn,
     RunIn,
     SkillApproveIn,
@@ -32,8 +30,17 @@ from .schemas import (
     WorkOrderIn,
 )
 from .seed import DEMO_ZONES
-from .state import _orders, link, orch, skills
-from .mcp import mcp_endpoint
+from .state import (
+    _orders,
+    adapters,
+    cache,
+    events,
+    link,
+    orch,
+    repo,
+    skills,
+    tracer,
+)
 
 SERVICE_NAME = "agent-runtime"
 
@@ -78,22 +85,23 @@ async def list_zones() -> dict[str, Any]:
 
 
 @post("/tg-api/v1/robots/{robot_id:str}/estop", status_code=HTTP_200_OK)
-async def estop(robot_id: str) -> dict[str, Any]:
+async def estop(robot_id: Annotated[str, PathParameter(name="robot_id")]) -> dict[str, Any]:
     ok = link.emergency_stop(robot_id)
     if not ok:
-        raise HTTPException(status_code=HTTP_404_NOT_FOUND,
-                            detail=f"机器人不存在: {robot_id}")
+        raise HTTPException(
+            status_code=HTTP_404_NOT_FOUND,
+            detail=f"机器人不存在: {robot_id}") from None
     return {"robot_id": robot_id, "stopped": True}
 
 
 # ---------------------------------------------------------------- 作业单
 @post("/tg-api/v1/work-orders", status_code=201)
-async def submit_work_order(data: WorkOrderIn) -> dict[str, Any]:
+async def submit_work_order(data: Annotated[WorkOrderIn, Body()]) -> dict[str, Any]:
     try:
         kind = WorkOrderKind(data.kind)
     except ValueError:
         raise HTTPException(status_code=HTTP_400_BAD_REQUEST,
-                            detail=f"未知作业单类型: {data.kind}")
+                            detail=f"未知作业单类型: {data.kind}") from None
     order_id = f"WO-{uuid.uuid4().hex[:8].upper()}"
     order = WorkOrder(order_id, kind, dict(data.params), data.priority,
                       data.requested_by, data.due)
@@ -105,7 +113,10 @@ async def submit_work_order(data: WorkOrderIn) -> dict[str, Any]:
 
 
 @post("/tg-api/v1/work-orders/{order_id:str}/approve", status_code=HTTP_200_OK)
-async def approve(order_id: str, data: ApproveIn) -> dict[str, Any]:
+async def approve(
+    order_id: Annotated[str, PathParameter(name="order_id")],
+    data: Annotated[ApproveIn, Body()],
+) -> dict[str, Any]:
     rec = _get(order_id)
     if rec["status"] != "PENDING":
         raise HTTPException(status_code=HTTP_400_BAD_REQUEST,
@@ -116,7 +127,10 @@ async def approve(order_id: str, data: ApproveIn) -> dict[str, Any]:
 
 
 @post("/tg-api/v1/work-orders/{order_id:str}/run", status_code=HTTP_200_OK)
-async def run(order_id: str, data: RunIn) -> dict[str, Any]:
+async def run(
+    order_id: Annotated[str, PathParameter(name="order_id")],
+    data: Annotated[RunIn, Body()],
+) -> dict[str, Any]:
     rec = _get(order_id)
     if rec["status"] not in {"APPROVED", "RUNNING"}:
         raise HTTPException(status_code=HTTP_400_BAD_REQUEST,
@@ -128,7 +142,7 @@ async def run(order_id: str, data: RunIn) -> dict[str, Any]:
 
 
 @get("/tg-api/v1/work-orders/{order_id:str}")
-async def get_order(order_id: str) -> dict[str, Any]:
+async def get_order(order_id: Annotated[str, PathParameter(name="order_id")]) -> dict[str, Any]:
     rec = _get(order_id)
     return {"order_id": order_id, "status": rec["status"],
             "report": rec["report"].to_dict()}
@@ -142,31 +156,43 @@ async def list_orders() -> dict[str, Any]:
 
 # ---------------------------------------------------------------- 技能治理
 @post("/tg-api/v1/skills/{skill_id:str}/versions", status_code=201)
-async def publish_skill(skill_id: str, data: SkillPublishIn) -> dict[str, Any]:
+async def publish_skill(
+    skill_id: Annotated[str, PathParameter(name="skill_id")],
+    data: Annotated[SkillPublishIn, Body()],
+) -> dict[str, Any]:
     try:
         v = skills.publish(skill_id, data.version, data.entry, data.canary_pct)
     except Exception as e:
-        raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=HTTP_400_BAD_REQUEST,
+                            detail=str(e)) from e
     return {"skill_id": skill_id, "version": v.version, "state": v.state}
 
 
 @post("/tg-api/v1/skills/{skill_id:str}/versions/{version:str}/approve", status_code=HTTP_200_OK)
-async def approve_skill(skill_id: str, version: str,
-                        data: SkillApproveIn) -> dict[str, Any]:
+async def approve_skill(
+    skill_id: Annotated[str, PathParameter(name="skill_id")],
+    version: Annotated[str, PathParameter(name="version")],
+    data: Annotated[SkillApproveIn, Body()],
+) -> dict[str, Any]:
     try:
         v = skills.approve(skill_id, version, data.approved_by, data.canary_pct)
     except Exception as e:
-        raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=HTTP_400_BAD_REQUEST,
+                            detail=str(e)) from e
     return {"skill_id": skill_id, "version": v.version, "state": v.state,
             "approved_by": v.approved_by}
 
 
 @post("/tg-api/v1/skills/{skill_id:str}/rollback", status_code=HTTP_200_OK)
-async def rollback_skill(skill_id: str, to_version: str = Parameter(query="to")) -> dict[str, Any]:
+async def rollback_skill(
+    skill_id: Annotated[str, PathParameter(name="skill_id")],
+    to_version: Annotated[str, QueryParameter(name="to")] = "",
+) -> dict[str, Any]:
     try:
         v = skills.rollback(skill_id, to_version)
     except Exception as e:
-        raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=HTTP_400_BAD_REQUEST,
+                            detail=str(e)) from e
     return {"skill_id": skill_id, "active": v.version, "state": v.state}
 
 
@@ -182,7 +208,7 @@ async def list_skills() -> dict[str, Any]:
 
 # ---------------------------------------------------------------- 人工令牌
 @post("/tg-api/v1/tokens", status_code=201)
-async def issue_token(data: TokenIn) -> dict[str, Any]:
+async def issue_token(data: Annotated[TokenIn, Body()]) -> dict[str, Any]:
     """人工签发确认令牌（真人审批流的机器入口；模型不得调用本接口）。"""
     orch.human_tokens[data.scope] = data.token
     return {"scope": data.scope, "issued": True, "signed_by": data.signed_by}
@@ -201,7 +227,58 @@ async def episode_stats() -> dict[str, Any]:
     }
 
 
-def _get(order_id: str) -> dict[str, Any]:
+# ---------------------------------------------------------------- v1.1 观测
+@get("/tg-api/v1/observability/spans")
+async def observability_spans(
+    trace_id: Annotated[str, QueryParameter(name="trace_id")] = "",
+) -> dict[str, Any]:
+    """OTel 对齐 span 导出（Session>Trace>Span 三层）。"""
+    return {"spans": tracer.export(trace_id or None)}
+
+
+@get("/tg-api/v1/observability/metrics")
+async def observability_metrics() -> dict[str, Any]:
+    m = tracer.metrics()
+    m["cache"] = {"hits": cache.stats.hits, "misses": cache.stats.misses,
+                  "hit_rate": round(cache.stats.hit_rate, 4)}
+    m["events"] = events.stats
+    return m
+
+
+@get("/tg-api/v1/events")
+async def event_stream() -> dict[str, Any]:
+    return {"stats": events.stats,
+            "recent": [e.to_dict() for e in events.transport.history()[-20:]]}
+
+
+@get("/tg-api/v1/adapters/health")
+async def adapters_health() -> dict[str, Any]:
+    """多品牌适配器健康（VDA 5050 等）。"""
+    return {"adapters": {brand: {"ok": h.ok, "detail": h.detail,
+                                 "latency_ms": h.latency_ms}
+                         for brand, h in adapters.health_all().items()}}
+
+
+@get("/tg-api/v1/audit")
+async def audit_trail(
+    limit: Annotated[int, QueryParameter(name="limit")] = 50,
+) -> dict[str, Any]:
+    return {"trail": repo.audit_trail(limit)}
+
+
+# ---------------------------------------------------------------- A2A
+@get("/a2a/v1/card")
+async def a2a_card() -> dict[str, Any]:
+    return AGENT_CARD
+
+
+@post("/a2a/v1/tasks", status_code=HTTP_200_OK)
+async def a2a_delegate(data: Annotated[A2ADelegateIn, Body()]) -> dict[str, Any]:
+    """外部智能体（如 Diting-PdM）意图委派入口。"""
+    return delegate(data.intent, dict(data.params), data.source_agent)
+
+
+def _get(order_id: Annotated[str, PathParameter(name="order_id")]) -> dict[str, Any]:
     rec = _orders.get(order_id)
     if rec is None:
         raise HTTPException(status_code=HTTP_404_NOT_FOUND,
@@ -215,5 +292,8 @@ app = Litestar(route_handlers=[
     submit_work_order, approve, run, get_order, list_orders,
     publish_skill, approve_skill, rollback_skill, list_skills,
     issue_token, episode_stats,
+    observability_spans, observability_metrics, event_stream,
+    adapters_health, audit_trail,
+    a2a_card, a2a_delegate,
     mcp_endpoint,
 ])

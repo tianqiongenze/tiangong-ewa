@@ -7,8 +7,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Optional, Sequence
 
 from . import capability as cap_mod
 from .models import Robot, Task
@@ -24,14 +24,12 @@ class Counterfactual:
 
 def feasibility(tasks: Sequence[Task], robots: Sequence[Robot]) -> bool:
     """当前机群能否覆盖全部任务（每个任务至少一台合格机器人）。"""
-    for t in tasks:
-        if not any(not c.rejected for c in cap_mod.match_robots(t, robots)):
-            return False
-    return True
+    return all(any(not c.rejected for c in cap_mod.match_robots(t, robots))
+               for t in tasks)
 
 
 def counterfactual(tasks: Sequence[Task], robots: Sequence[Robot],
-                   drop_robot_id: Optional[str] = None) -> Counterfactual:
+                   drop_robot_id: str | None = None) -> Counterfactual:
     """反事实：某台机器人缺席时，计划是否仍可行。"""
     if drop_robot_id is None:
         ok = feasibility(tasks, robots)

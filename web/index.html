@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>天工 Tiangong-EWA · 运营看板</title>
+<style>
+  :root{
+    --bg:#0E1621; --panel:#16222F; --panel2:#1B2A3A; --line:#2A3D52;
+    --text:#E8EEF4; --sub:#8FA5B8; --accent:#FF8A3D; --ok:#2ED47A;
+    --warn:#FFB020; --bad:#FF5C5C; --blue:#3D9BFF;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif;padding:20px;min-height:100vh}
+  header{display:flex;align-items:baseline;gap:16px;margin-bottom:6px}
+  h1{font-size:22px;letter-spacing:1px}
+  h1 .code{color:var(--accent);font-size:13px;font-weight:400;margin-left:10px}
+  .sub{color:var(--sub);font-size:12px;margin-bottom:18px}
+  .grid{display:grid;gap:14px;grid-template-columns:repeat(12,1fr)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .card h2{font-size:13px;color:var(--sub);font-weight:600;letter-spacing:2px;margin-bottom:12px}
+  .span4{grid-column:span 4}.span8{grid-column:span 8}.span6{grid-column:span 6}.span12{grid-column:span 12}
+  .kpi{display:flex;gap:14px;flex-wrap:wrap}
+  .kpi .item{flex:1;min-width:110px;background:var(--panel2);border-radius:8px;padding:12px 14px}
+  .kpi .v{font-size:26px;font-weight:700}
+  .kpi .l{font-size:11px;color:var(--sub);margin-top:4px}
+  .ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}.accent{color:var(--accent)}.blue{color:var(--blue)}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th{color:var(--sub);text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);font-weight:600}
+  td{padding:7px 8px;border-bottom:1px solid #22344A}
+  .tag{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px}
+  .tag.done{background:rgba(46,212,122,.15);color:var(--ok)}
+  .tag.run{background:rgba(61,155,255,.15);color:var(--blue)}
+  .tag.fail{background:rgba(255,92,92,.15);color:var(--bad)}
+  .tag.pend{background:rgba(255,176,32,.15);color:var(--warn)}
+  .map{width:100%;height:auto;display:block}
+  .legend{display:flex;gap:16px;font-size:11px;color:var(--sub);margin-top:8px;flex-wrap:wrap}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+  .bar{height:6px;background:#22344A;border-radius:3px;overflow:hidden;margin-top:6px}
+  .bar i{display:block;height:100%;background:var(--accent);border-radius:3px}
+  footer{margin-top:16px;color:var(--sub);font-size:11px;text-align:center}
+  @media (max-width:900px){.span4,.span6,.span8{grid-column:span 12}}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>天工 · 具身智能工厂作业智能体平台<span class="code">TIANGONG-EWA v1.1 运营看板</span></h1>
+</header>
+<div class="sub">数据口径：演示合成数据（脱敏） ｜ 接口：/tg-api/v1（REST）· /mcp（MCP）· /a2a/v1（A2A） ｜ 宪法：五条红线 · 证据链 · 降级阶梯</div>
+
+<div class="grid">
+
+  <!-- KPI -->
+  <div class="card span12">
+    <h2>今日运营指标</h2>
+    <div class="kpi">
+      <div class="item"><div class="v ok">128</div><div class="l">作业单完成</div></div>
+      <div class="item"><div class="v blue">4</div><div class="l">在线机器人</div></div>
+      <div class="item"><div class="v accent">99.2%</div><div class="l">任务成功率</div></div>
+      <div class="item"><div class="v warn">3.1%</div><div class="l">人工接管率（L3）</div></div>
+      <div class="item"><div class="v ok">100%</div><div class="l">证据完整率</div></div>
+      <div class="item"><div class="v bad">0</div><div class="l">红线违规</div></div>
+      <div class="item"><div class="v">42</div><div class="l">episode 入库</div></div>
+    </div>
+  </div>
+
+  <!-- 安全区地图 -->
+  <div class="card span8">
+    <h2>厂区安全区地图（SVG · 演示布局 60m × 60m）</h2>
+    <svg class="map" viewBox="0 0 620 400" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+          <path d="M40 0H0V40" fill="none" stroke="#22344A" stroke-width="1"/>
+        </pattern>
+      </defs>
+      <rect x="10" y="10" width="600" height="380" fill="#12202D" stroke="#2A3D52"/>
+      <rect x="10" y="10" width="600" height="380" fill="url(#grid)"/>
+      <!-- 装配车间 -->
+      <rect x="10" y="10" width="400" height="200" fill="rgba(61,155,255,.06)" stroke="#3D9BFF" stroke-dasharray="4 3"/>
+      <text x="20" y="30" fill="#3D9BFF" font-size="11">装配车间</text>
+      <!-- 原料库 -->
+      <rect x="410" y="10" width="200" height="200" fill="rgba(255,138,61,.06)" stroke="#FF8A3D" stroke-dasharray="4 3"/>
+      <text x="420" y="30" fill="#FF8A3D" font-size="11">原料库</text>
+      <!-- 人行通道 SLOW -->
+      <rect x="10" y="210" width="600" height="40" fill="rgba(255,176,32,.12)" stroke="#FFB020"/>
+      <text x="20" y="235" fill="#FFB020" font-size="11">人行通道 · 限速区 0.3 m/s</text>
+      <!-- 人机交叉 STOP -->
+      <rect x="10" y="250" width="100" height="100" fill="rgba(255,92,92,.14)" stroke="#FF5C5C"/>
+      <text x="20" y="275" fill="#FF5C5C" font-size="11">人机交叉作业区</text>
+      <text x="20" y="290" fill="#FF5C5C" font-size="11">停止区（有人即停）</text>
+      <!-- 高压配电房 FORBIDDEN -->
+      <rect x="500" y="300" width="100" height="90" fill="rgba(255,92,92,.28)" stroke="#FF5C5C" stroke-width="2"/>
+      <text x="512" y="330" fill="#FF8A8A" font-size="11" font-weight="bold">高压配电房</text>
+      <text x="512" y="346" fill="#FF8A8A" font-size="11" font-weight="bold">禁入区 R1</text>
+      <!-- 充电桩 -->
+      <rect x="120" y="300" width="80" height="40" fill="rgba(46,212,122,.12)" stroke="#2ED47A"/>
+      <text x="132" y="325" fill="#2ED47A" font-size="11">充电桩</text>
+      <!-- 机器人 -->
+      <g font-size="10" fill="#E8EEF4">
+        <circle cx="60" cy="120" r="9" fill="#3D9BFF"/><text x="74" y="124">AMR-01</text>
+        <circle cx="480" cy="90" r="9" fill="#3D9BFF"/><text x="494" y="94">AMR-02</text>
+        <circle cx="260" cy="120" r="9" fill="#FF8A3D"/><text x="274" y="124">ARM-01</text>
+        <circle cx="350" cy="150" r="9" fill="#2ED47A"/><text x="364" y="154">QD-01</text>
+      </g>
+      <!-- 路径示例 -->
+      <path d="M60 120 L480 90" stroke="#3D9BFF" stroke-width="1.5" stroke-dasharray="6 4" fill="none" opacity=".6"/>
+      <path d="M260 120 L60 120" stroke="#FF8A3D" stroke-width="1.5" stroke-dasharray="6 4" fill="none" opacity=".6"/>
+    </svg>
+    <div class="legend">
+      <span><i style="background:#FF5C5C"></i>禁入/停止区</span>
+      <span><i style="background:#FFB020"></i>限速区</span>
+      <span><i style="background:#3D9BFF"></i>AMR 搬运</span>
+      <span><i style="background:#FF8A3D"></i>机械臂上下料</span>
+      <span><i style="background:#2ED47A"></i>四足巡检</span>
+    </div>
+  </div>
+
+  <!-- 机群状态 -->
+  <div class="card span4">
+    <h2>机群遥测</h2>
+    <table>
+      <tr><th>机器人</th><th>电量</th><th>状态</th></tr>
+      <tr><td>AMR-01</td><td>86%</td><td><span class="tag done">执行中</span></td></tr>
+      <tr><td>AMR-02</td><td>72%</td><td><span class="tag done">执行中</span></td></tr>
+      <tr><td>ARM-01</td><td>91%</td><td><span class="tag run">待命</span></td></tr>
+      <tr><td>QD-01</td><td>64%</td><td><span class="tag run">巡检</span></td></tr>
+    </table>
+    <h2 style="margin-top:16px">适配器健康（多品牌）</h2>
+    <table>
+      <tr><th>品牌</th><th>协议</th><th>健康</th></tr>
+      <tr><td>仙委 SEER</td><td>VDA 5050</td><td><span class="tag pend">dry-run</span></td></tr>
+      <tr><td>墨影 Mushadow</td><td>VDA 5050</td><td><span class="tag pend">dry-run</span></td></tr>
+      <tr><td>Mock（仿真）</td><td>内存</td><td><span class="tag done">ok</span></td></tr>
+    </table>
+  </div>
+
+  <!-- 任务看板 -->
+  <div class="card span6">
+    <h2>任务看板（最近作业单 WO-2026-1025-07）</h2>
+    <table>
+      <tr><th>任务</th><th>类型</th><th>执行者</th><th>状态</th></tr>
+      <tr><td>T1</td><td>PICK 取件</td><td>AMR-01</td><td><span class="tag done">DONE</span></td></tr>
+      <tr><td>T2</td><td>TRANSPORT 搬运</td><td>AMR-01</td><td><span class="tag done">DONE</span></td></tr>
+      <tr><td>T3</td><td>PLACE 放置</td><td>AMR-02</td><td><span class="tag done">DONE</span></td></tr>
+      <tr><td>T4</td><td>SCAN 读数</td><td>QD-01</td><td><span class="tag run">执行中</span></td></tr>
+      <tr><td>T5</td><td>PHOTO 拍照</td><td>QD-01</td><td><span class="tag pend">待执行</span></td></tr>
+    </table>
+  </div>
+
+  <!-- 技能与证据 -->
+  <div class="card span6">
+    <h2>技能治理（四态）与证据链抽样</h2>
+    <table>
+      <tr><th>技能</th><th>生效版本</th><th>成功率</th><th>灰度</th></tr>
+      <tr><td>transport 搬运</td><td>1.0.0 APPROVED</td><td>99.4%</td><td>10%</td></tr>
+      <tr><td>pick_place 取放</td><td>1.0.0 APPROVED</td><td>98.8%</td><td>10%</td></tr>
+      <tr><td>scan 巡检</td><td>1.0.0 APPROVED</td><td>97.5%</td><td>20%</td></tr>
+    </table>
+    <table style="margin-top:12px">
+      <tr><th>证据链抽样（trace_id 可回放）</th></tr>
+      <tr><td>TR-2950b2c316ba · T2 TRANSPORT</td></tr>
+      <tr><td style="color:var(--sub)">trace ✓ · telemetry sim://AMR-01/… ✓ · skill_version transport@1.0.0 ✓</td></tr>
+      <tr><td style="color:var(--sub)">安全裁定：开放区 → 允许（无红线触发）</td></tr>
+    </table>
+    <div class="bar"><i style="width:99%"></i></div>
+    <div style="font-size:11px;color:var(--sub);margin-top:6px">证据完整率 100% —— 缺一即不得 DONE（宪法第三条）</div>
+  </div>
+
+</div>
+
+<footer>天工 Tiangong-EWA · v1.1 ｜ 生成：python tools/build_dashboard.py（或直接静态打开）｜ 合成脱敏数据，非真实生产数据</footer>
+
+</body>
+</html>

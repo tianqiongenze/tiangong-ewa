@@ -20,7 +20,6 @@ from typing import Any
 
 from litestar import Request, post
 from litestar.status_codes import HTTP_200_OK
-
 from tiangong_core import WorkOrder, WorkOrderKind
 
 from . import __version__
@@ -50,7 +49,7 @@ async def mcp_endpoint(request: Request) -> dict[str, Any]:
         args = params.get("arguments") or {}
         try:
             result = _dispatch(name, args)
-        except Exception as e:  # 工具错误不进 crash，回 error
+        except (KeyError, ValueError) as e:  # 工具错误不进 crash，回 error
             return _err(f"{name}: {e}")
         return {"jsonrpc": "2.0", "id": rid,
                 "result": {"content": [{"type": "text",
@@ -83,13 +82,19 @@ TOOLS = [
 ]
 
 
+def _telemetry_dict(robot_id: str) -> dict[str, Any] | None:
+    t = link.telemetry(robot_id)
+    if t is None:
+        return None
+    return {"x": t.x, "y": t.y, "battery_pct": t.battery_pct,
+            "online": t.online}
+
+
 def _dispatch(name: str, args: dict[str, Any]) -> dict[str, Any]:
     if name == "tg_list_robots":
         return {"robots": [{
             "robot_id": r.robot_id, "kind": r.kind,
-            "telemetry": (lambda t: None if t is None else {
-                "x": t.x, "y": t.y, "battery_pct": t.battery_pct,
-                "online": t.online})(link.telemetry(r.robot_id)),
+            "telemetry": _telemetry_dict(r.robot_id),
         } for r in orch.robots]}
     if name == "tg_list_zones":
         return {"zones": [{"zone_id": z.zone_id, "kind": z.kind.value,

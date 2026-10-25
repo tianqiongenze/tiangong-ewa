@@ -12,12 +12,11 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from enum import Enum
-from typing import Optional
+from dataclasses import dataclass
+from enum import StrEnum
 
 
-class DegradeLevel(str, Enum):
+class DegradeLevel(StrEnum):
     NONE = "NONE"
     L1_RETRY = "L1_RETRY"
     L2_RULE_FALLBACK = "L2_RULE_FALLBACK"

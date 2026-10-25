@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Mapping, Sequence
 
-from .models import Evidence, EvidenceItem, Task, TaskStatus
+from .models import Evidence, EvidenceItem, Task
 
 # 任务类型 → 必须的证据类型（缺一即不得判 DONE）
 REQUIRED_EVIDENCE: Mapping[str, tuple[str, ...]] = {

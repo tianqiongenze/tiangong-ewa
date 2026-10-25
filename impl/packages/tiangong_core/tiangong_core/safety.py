@@ -12,8 +12,9 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Mapping, Optional, Sequence
+from typing import Any
 
 from .models import SafetyZone, ZoneKind
 
@@ -48,14 +49,14 @@ class Action:
     x: float
     y: float
     payload_kg: float = 0.0
-    human_token: Optional[str] = None
+    human_token: str | None = None
     metadata: Mapping[str, Any] = None  # type: ignore[assignment]
 
 
 @dataclass(frozen=True)
 class Verdict:
     allowed: bool
-    speed_limit: Optional[float] = None   # None = 不限速
+    speed_limit: float | None = None   # None = 不限速
     reason: str = ""
 
 

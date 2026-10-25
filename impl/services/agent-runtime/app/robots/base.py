@@ -11,8 +11,9 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Optional, Protocol, Sequence
+from typing import Any, Protocol
 
 
 @dataclass(frozen=True)
@@ -38,10 +39,11 @@ class ExecutionResult:
 class RobotLink(Protocol):
     """机器人链路协议。"""
 
-    def telemetry(self, robot_id: str) -> Optional[Telemetry]:  # pragma: no cover
+    def telemetry(self, robot_id: str) -> Telemetry | None:  # pragma: no cover
         ...
 
-    def execute(self, robot_id: str, action: Mapping[str, Any]) -> ExecutionResult:  # pragma: no cover
+    def execute(self, robot_id: str,
+                action: Mapping[str, Any]) -> ExecutionResult:  # pragma: no cover
         ...
 
     def emergency_stop(self, robot_id: str) -> bool:  # pragma: no cover

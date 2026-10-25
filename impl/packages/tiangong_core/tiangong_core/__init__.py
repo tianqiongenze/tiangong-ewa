@@ -9,6 +9,12 @@
 - 所有对外结论必须带证据（evidence），无证据不得输出
 """
 
+from .capability import match_robots, score_robot  # noqa: F401
+from .degrade import DegradationLadder, DegradeLevel, LadderStep  # noqa: F401
+from .episode import Episode, EpisodeRecorder  # noqa: F401
+from .evidence import EvidenceChain, verify_evidence  # noqa: F401
+from .fleet import Assignment, FleetScheduler, ScheduleResult  # noqa: F401
+from .lifecycle import IllegalTransition, allowed_next, transition  # noqa: F401
 from .models import (  # noqa: F401
     Evidence,
     EvidenceItem,
@@ -23,8 +29,6 @@ from .models import (  # noqa: F401
     WorkOrderKind,
     ZoneKind,
 )
-from .taskgraph import PlanError, TaskGraph, decompose, topological_order  # noqa: F401
-from .capability import match_robots, score_robot  # noqa: F401
 from .safety import (  # noqa: F401
     RED_LINES,
     Action,
@@ -34,12 +38,8 @@ from .safety import (  # noqa: F401
     check_geofence,
     speed_limit_in,
 )
-from .evidence import EvidenceChain, verify_evidence  # noqa: F401
-from .lifecycle import IllegalTransition, allowed_next, transition  # noqa: F401
-from .degrade import DegradationLadder, DegradeLevel, LadderStep  # noqa: F401
 from .skills import SkillRegistry, SkillState  # noqa: F401
-from .fleet import Assignment, FleetScheduler, ScheduleResult  # noqa: F401
+from .taskgraph import PlanError, TaskGraph, decompose, topological_order  # noqa: F401
 from .worldmodel import Counterfactual, counterfactual, feasibility  # noqa: F401
-from .episode import Episode, EpisodeRecorder  # noqa: F401
 
 __version__ = "0.1.0"

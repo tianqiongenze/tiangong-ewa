@@ -7,8 +7,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Mapping, Optional, Sequence
+from typing import Any
 
 from .models import Robot, Task
 
@@ -69,7 +70,7 @@ def hard_check(task: Task, robot: Robot) -> tuple[bool, str]:
     return True, ""
 
 
-def score_robot(task: Task, robot: Robot, target: Optional[tuple[float, float]] = None) -> float:
+def score_robot(task: Task, robot: Robot, target: tuple[float, float] | None = None) -> float:
     """软打分：距离近 + 电量足 + 速度够者优先（0–1）。"""
     cap = robot.capability
     s = 0.0
@@ -85,7 +86,7 @@ def score_robot(task: Task, robot: Robot, target: Optional[tuple[float, float]] 
 
 
 def match_robots(task: Task, robots: Sequence[Robot],
-                 target: Optional[tuple[float, float]] = None) -> list[Candidate]:
+                 target: tuple[float, float] | None = None) -> list[Candidate]:
     """返回全部候选（含被淘汰者及原因）——拒绝也要留痕。"""
     out: list[Candidate] = []
     for r in robots:

@@ -13,7 +13,7 @@
 | `specs/` | 宪法 + 特性规格（spec/plan/tasks/features） | 无规格不写码 |
 | `impl/packages/tiangong_core/` | 领域核（纯函数 + 不可变模型） | 核心算法必须 TDD，覆盖率 ≥ 90% |
 | `impl/services/agent-runtime/` | REST + MCP 服务（Litestar） | 契约变更先改 docs/06 |
-| `impl/tests/` | 58 项测试 | 改核心必须同步改测试 |
+| `impl/tests/` | 96 项测试（44 核心 + 14 服务 + 38 重构专项） | 改核心必须同步改测试 |
 | `impl/contracts/proto/` | 机器人链路 gRPC 契约 | buf lint 门禁 |
 | `impl/deploy/` | K8s 清单 | 与 docs/09 对齐 |
 | `export/` | 全部文档的 Word/PDF 导出 | 由 `tools/md_export.py` 生成，勿手改 |

@@ -10,8 +10,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Mapping, Optional, Sequence
 
 from . import capability as cap_mod
 from . import safety
@@ -24,7 +24,7 @@ class Assignment:
     robot_id: str
     score: float
     reasons: tuple[str, ...]
-    speed_limit: Optional[float] = None
+    speed_limit: float | None = None
 
 
 @dataclass(frozen=True)
@@ -38,7 +38,7 @@ class ScheduleResult:
         return not self.unassigned
 
 
-def target_of(task: Task) -> Optional[tuple[float, float]]:
+def target_of(task: Task) -> tuple[float, float] | None:
     """从任务参数提取目标点（若有）。"""
     for key in ("x", "at_x", "target_x"):
         if key in task.params and "y" in task.params:
