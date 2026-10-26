@@ -14,3 +14,9 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 "services/agent-runtime/app/*" = ["BLE001", "S110", "S112"]
 # 测试允许 assert 与盲捕获
 "tests/*" = ["BLE001", "S110", "S112"]
+
+[tool.pytest.ini_options]
+# E2E（浏览器）默认不随单元测试运行：make e2e 显式执行
+markers = ["e2e: 需要真实服务进程 + 浏览器的端到端测试"]
+addopts = "-m 'not e2e'"
+testpaths = ["tests"]

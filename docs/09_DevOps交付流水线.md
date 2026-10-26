@@ -52,9 +52,17 @@ make smoke      # 冒烟（healthz + robots）
 | 变量 / 挂载 | 生产值 | 说明 |
 |---|---|---|
 | `TIANGONG_DB` | `/data/tiangong.db` | **不设则为内存库，重启即丢** |
-| `/data` 卷 | PVC（≥ 20 GiB） | SQLite + WAL，需与 Pod 同生命周期 |
+| `TIANGONG_BULK_DB` | `/data/tiangong_bulk.db` | 分析库（1 亿条事实 + 预聚合）；不设为"分析不可用"，接口降级 |
+| `TIANGONG_REDIS_URL` | `redis://redis:6379/0` | L2 缓存；不设则只用 L1（功能不受影响） |
+| `TIANGONG_CACHE_TTL` | `5` | L1 默认 TTL（秒） |
+| `/data` 卷 | PVC（≥ 20 GiB，含分析库建议 ≥ 60 GiB） | SQLite + WAL + 分析库 |
 | `/episodes` 卷 | 对象存储或 PVC | episode 分片，按天分片 |
 | `TZ` | `Asia/Shanghai` | 审计时间口径统一 |
+
+> **分析库与预聚合的部署纪律**：
+> 1. 分析库随镜像/数据包分发或用 `tools/gen_bulk_data.py` + `tools/build_rollup.py` 离线构建；
+> 2. **预聚合必须与明细同批更新**（否则口径漂移）：每日 ETL 末尾执行 `build_rollup.py --rebuild`；
+> 3. 服务重启前执行 `tools/warmup_cache.py`，冷启动首请求即可命中 L2（docs/44 §5）。
 
 > 单副本写库限制：SQLite 为单写者模型，**agent-runtime 写实例应为 1**；
 > 需要横向扩展时，读实例可多副本（走读连接 + 缓存），写实例保持单点并由 K8s 保证重启。
@@ -135,6 +143,21 @@ K3s 集群
 ### 5.3 告警建议阈值
 
 见 docs/38 §5.1（含分级、首响时限与升级路径），DevOps 侧只负责规则落地与通知通道。
+
+### 5.4 性能基线（实测，1 亿条数据）
+
+| 场景 | 实测 | 阈值 | 数据来源 |
+|---|---|---|---|
+| 全链路 P95（读为主） | 1.53 ms | < 300 ms | k6 16,823 请求 |
+| 下单→审批→执行 P95 | 7 ms | < 1200 ms | k6 write_chain |
+| 聚合查询 P95（缓存命中） | 1 ms | < 120 ms | k6 an_summary |
+| 聚合查询（预聚合，无缓存） | 0.23–1.06 ms | — | docs/44 §4.3 |
+| 缓存命中率 | 99.96% | > 60% | 压测期 |
+| 失败率 | 0.00% | < 1% | k6 + Locust |
+
+> 容量结论：单进程 granian + 预聚合 + 两级缓存在本机可稳定承载 250+ rps（读为主）。
+> 写路径受 SQLite 单写者限制，规模化前需按 A9 迁移 PostgreSQL。
+> 回归方式：`make perf-k6` / `make perf-locust`（脚本内置阈值，不达标即退出非 0）。
 
 ---
 

@@ -35,3 +35,25 @@
 - 可视化：`web/index.html` 单文件运营看板（机群遥测 / 任务看板 / 安全区 SVG 地图 / KPI）
 - 导出：export/ 26 份 docx + 26 份 pdf（清理旧编号残留）
 - 自评：招标 19 / FDE 18 / 架构 19 / 教授 18 / 美工 17 → **91/100**
+
+---
+
+## 2026-10-26 ｜ v1.2 数据规模与性能专项
+
+- 数据层：新增分析库（与业务库物理分离），生成并写入 **100,000,000 条**作业事实
+  （wo 15M / task 40M / episode 35M / audit 10M），落盘 **5.03 GiB**，装载 1,027 s + 建索引 357 s
+- 读模型：新增 `tools/build_rollup.py` 预聚合（agg_daily / agg_daily_task / agg_daily_skill /
+  agg_daily_action / agg_hourly，共 5,164 行），聚合查询 **173,537 ms → 0.23 ms**
+- 缓存：`cache.py` 增加 `RedisL2`（JSON + SCAN 前缀失效 + 故障降级）；`state.py` 按 `TIANGONG_REDIS_URL` 装配；
+  新增 `tools/redis_compat.py`（RESP 兼容服务）与 `tools/warmup_cache.py`（211 key / 138.6 KiB / 1.01 s）
+- 缺陷修复：L2 命中回填 L1 时误改写 L2 TTL，导致预热键 5 s 后过期 → 拆分 `_set_l1` + 回归测试
+- 分析 API：新增 `/tg-api/v1/analytics/{scale,summary,hourly,audit}`、`/analytics/orders/{id}/timeline`
+- 看板：`web/index.html` 改为**实时数据源**（API 驱动 + 演示兜底 + 数据源徽标），
+  新增下单/审批/执行闭环表单、分析库概览卡；服务端同源托管 `/` + CORS
+- 测试：新增 `tests/test_analytics_cache.py`（24 项）与 `tests/e2e/`（Playwright 13 项）；
+  合计 **120 项单元/接口 + 13 项 E2E 全绿**，覆盖率 93%
+- 压测：新增 `tests/perf/k6_tiangong.js` 与 `locustfile.py`；
+  k6 16,823 请求 / 256.7 rps / **0 失败** / P95 **1.53 ms**；
+  Locust 7,757 请求 / 131.3 rps / **0 失败** / P95 **4 ms**；压测期缓存命中率 **99.96%**
+- 文档：新增 `docs/44_全链路与性能测试报告.md`；docs/03（读模型 + A14–A16）、docs/08（E2E/性能层）、
+  docs/09（`TIANGONG_BULK_DB`/`TIANGONG_REDIS_URL` + 性能基线）、docs/38（巡检项 + 容量）同步

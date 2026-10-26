@@ -4,7 +4,7 @@
 > 无真机可跑（MockRobotDriver 仿真机群），有真机按 `contracts/proto/robot_link.proto` 接，
 > 跨品牌 AGV/AMR 走 VDA 5050（`app/robots/vda5050.py`）。
 
-**状态**：v1.1 · 96 项测试全绿 · 覆盖率 93% · ruff 零告警 · CI 全绿
+**状态**：v1.2 · 120 项单元/接口 + 13 项浏览器 E2E 全绿 · 覆盖率 93% · ruff 零告警 · k6/Locust 0 失败
 
 ## 结构
 
@@ -25,7 +25,8 @@ impl/
 ├── services/agent-runtime/      REST + MCP + A2A 服务（Litestar）
 │   ├── app/orchestrator.py      编排闭环（内嵌 span / 事件 / 持久化插桩）
 │   ├── app/repository.py        CQRS 读写分离（SQLite WAL，写主读从，6 表）
-│   ├── app/cache.py             多级缓存（L1 TTL + L2 可插拔，命中率统计）
+│   ├── app/analytics.py         分析库只读仓储（预聚合优先，明细回退）
+│   ├── app/cache.py             多级缓存（L1 TTL + L2 Redis，命中率统计，支持预热）
 │   ├── app/events.py            事件总线（Transport 抽象 + MemoryTransport）
 │   ├── app/otel.py              OTel GenAI SemConv（Session>Trace>Span）
 │   ├── app/memory/              Hermes 三层记忆（工作/情景/技能）
@@ -34,7 +35,9 @@ impl/
 │   ├── app/server.py            REST API（/tg-api/v1 + /a2a/v1）
 │   ├── app/mcp.py               MCP 服务端（/mcp，7 工具）
 │   └── app/seed.py              演示厂区（脱敏合成数据）
-├── tests/                       96 项测试（44 核心 + 14 服务 + 38 重构专项）
+├── tests/                       120 项（44 核心 + 14 服务 + 38 重构 + 24 分析/缓存）
+├── tests/e2e/                   Playwright 全链路 E2E（13 项）
+├── tests/perf/                  k6 脚本 + Locust 场景
 ├── contracts/proto/             真机链路 gRPC 契约
 ├── deploy/k8s/                  部署清单
 └── tools/demo_run.py            演示闭环
