@@ -6,6 +6,8 @@
 > 文档基线：**v1.2（新增 1 亿条数据 / Redis 预热 / 全链路 E2E / 压测）** ｜ 编制日期：2026-10-26 ｜ 状态：**可交付（自评 ≥ 90）**
 >
 > **仓库地址**：[GitHub](https://github.com/tianqiongenze/tiangong-ewa)
+> **配套课程**：[智能体工程化项目实战（64 课时 · 双元制）](https://github.com/tianqiongenze/tiangong-course) —— 以本项目为工程基线的教学包
+> **配套课程**：[智能体工程化项目实战（64 课时 · 双元制）](https://github.com/tianqiongenze/tiangong-course) —— 以本项目为工程基线的教学包
 >
 > 质量：**120 项单元/接口 + 13 项浏览器 E2E 全绿 · 覆盖率 93% · ruff 零告警 · CI 全绿**
 > 数据与性能：**分析库 1 亿条（5.03 GiB）· 聚合 P95 1 ms · 缓存命中率 99.96% · k6/Locust 0 失败**

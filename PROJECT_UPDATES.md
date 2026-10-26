@@ -57,3 +57,23 @@
   Locust 7,757 请求 / 131.3 rps / **0 失败** / P95 **4 ms**；压测期缓存命中率 **99.96%**
 - 文档：新增 `docs/44_全链路与性能测试报告.md`；docs/03（读模型 + A14–A16）、docs/08（E2E/性能层）、
   docs/09（`TIANGONG_BULK_DB`/`TIANGONG_REDIS_URL` + 性能基线）、docs/38（巡检项 + 容量）同步
+
+---
+
+## 2026-10-26 ｜ v1.2 增补：局域网人工测试指南 + 配套课程
+
+- 新增 `docs/45_局域网人工测试操作指南.md`：访问地址/防火墙/代理/端口排查、
+  必测主链路 10 项（含 R1/R2 红线）、多端验证、接口自检 9 项、测试记录表、缺陷反馈模板
+- 新增配套课程仓库：[tiangong-course](https://github.com/tianqiongenze/tiangong-course)
+  （64 课时 · 德国双元制本土化 · 费曼 + 布鲁姆；16 套 PPT + 44 份文档的 Word/PDF）
+- 课程与上游同步机制：`tools/sync_upstream.py` 生成 `upstream/` 快照并扫描过期数字
+
+---
+
+## 2026-10-26 ｜ v1.2 增补：局域网人工测试指南 + 配套课程
+
+- 新增 `docs/45_局域网人工测试操作指南.md`：访问地址/防火墙/代理/端口排查、
+  必测主链路 10 项（含 R1/R2 红线）、多端验证、接口自检 9 项、测试记录表、缺陷反馈模板
+- 新增配套课程仓库：[tiangong-course](https://github.com/tianqiongenze/tiangong-course)
+  （64 课时 · 德国双元制本土化 · 费曼 + 布鲁姆；16 套 PPT + 44 份文档的 Word/PDF）
+- 课程与上游同步机制：`tools/sync_upstream.py` 生成 `upstream/` 快照并扫描过期数字
